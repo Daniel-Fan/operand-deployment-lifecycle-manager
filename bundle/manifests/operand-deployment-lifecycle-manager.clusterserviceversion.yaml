@@ -742,7 +742,7 @@ spec:
   - admissionReviewVersions:
     - v1
     containerPort: 443
-    deploymentName: webhook
+    deploymentName: operand-deployment-lifecycle-manager
     failurePolicy: Fail
     generateName: moperandrequest.kb.io
     rules:

@@ -235,19 +235,21 @@ build-test-operator-image: $(CONFIG_DOCKER_TARGET) ## Build the operator test im
 ##@ Release
 
 build-dev-bundle-image:
-	docker build -f bundle.Dockerfile -t $(QUAY_REGISTRY)/$(BUNDLE_IMAGE_NAME):dev-test .
-	docker push $(QUAY_REGISTRY)/$(BUNDLE_IMAGE_NAME):dev-test
+	docker build -f bundle.Dockerfile -t $(QUAY_REGISTRY)/$(BUNDLE_IMAGE_NAME):dev .
+	docker push $(QUAY_REGISTRY)/$(BUNDLE_IMAGE_NAME):dev
 
 build-dev-catalog-source:
-	opm -u docker index add --bundles $(QUAY_REGISTRY)/$(BUNDLE_IMAGE_NAME):dev-test --tag $(QUAY_REGISTRY)/$(OPERATOR_IMAGE_NAME)-catalog:dev-test
-	docker push $(QUAY_REGISTRY)/$(OPERATOR_IMAGE_NAME)-catalog:dev-test
+	opm -u docker index add --bundles $(QUAY_REGISTRY)/$(BUNDLE_IMAGE_NAME):dev --tag $(QUAY_REGISTRY)/$(OPERATOR_IMAGE_NAME)-catalog:dev
+	docker push $(QUAY_REGISTRY)/$(OPERATOR_IMAGE_NAME)-catalog:dev
 
 build-dev-catalog: build-dev-bundle-image build-dev-catalog-source
 
 build-push-dev-image: build-operator-dev-image  ## Build and push the operator dev images.
 	@echo "Pushing the $(DEV_REGISTRY)/$(OPERATOR_IMAGE_NAME):$(VERSION) docker image to $(DEV_REGISTRY)..."
 	@docker tag $(OPERATOR_IMAGE_NAME):$(VERSION) $(DEV_REGISTRY)/$(OPERATOR_IMAGE_NAME):$(VERSION)
+	@docker tag $(OPERATOR_IMAGE_NAME):$(VERSION) $(DEV_REGISTRY)/$(OPERATOR_IMAGE_NAME):v2.0-dev
 	@docker push $(DEV_REGISTRY)/$(OPERATOR_IMAGE_NAME):$(VERSION)
+	@docker push $(DEV_REGISTRY)/$(OPERATOR_IMAGE_NAME):v2.0-dev
 
 build-push-image: $(CONFIG_DOCKER_TARGET) $(CONFIG_DOCKER_TARGET_QUAY) build-operator-image  ## Build and push the operator images.
 	@echo "Pushing the $(OPERATOR_IMAGE_NAME) docker image for $(LOCAL_ARCH)..."
