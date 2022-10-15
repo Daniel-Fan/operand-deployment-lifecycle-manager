@@ -170,7 +170,7 @@ bundle-manifests:
 
 generate-all: manifests kustomize operator-sdk ## Generate bundle manifests, metadata and package manifests
 	$(OPERATOR_SDK) generate kustomize manifests -q
-	- make bundle-manifests CHANNELS=v3.20 DEFAULT_CHANNEL=v3.20
+	- make bundle-manifests CHANNELS=v4.0 DEFAULT_CHANNEL=v4.0
 
 ##@ Test
 
@@ -235,12 +235,12 @@ build-test-operator-image: $(CONFIG_DOCKER_TARGET) ## Build the operator test im
 ##@ Release
 
 build-dev-bundle-image:
-	docker build -f bundle.Dockerfile -t $(QUAY_REGISTRY)/$(BUNDLE_IMAGE_NAME):dev .
-	docker push $(QUAY_REGISTRY)/$(BUNDLE_IMAGE_NAME):dev
+	docker build -f bundle.Dockerfile -t $(QUAY_REGISTRY)/$(BUNDLE_IMAGE_NAME):dev-test .
+	docker push $(QUAY_REGISTRY)/$(BUNDLE_IMAGE_NAME):dev-test
 
 build-dev-catalog-source:
-	opm -u docker index add --bundles $(QUAY_REGISTRY)/$(BUNDLE_IMAGE_NAME):dev --tag $(QUAY_REGISTRY)/$(OPERATOR_IMAGE_NAME)-catalog:dev
-	docker push $(QUAY_REGISTRY)/$(OPERATOR_IMAGE_NAME)-catalog:dev
+	opm -u docker index add --bundles $(QUAY_REGISTRY)/$(BUNDLE_IMAGE_NAME):dev-test --tag $(QUAY_REGISTRY)/$(OPERATOR_IMAGE_NAME)-catalog:dev-test
+	docker push $(QUAY_REGISTRY)/$(OPERATOR_IMAGE_NAME)-catalog:dev-test
 
 build-dev-catalog: build-dev-bundle-image build-dev-catalog-source
 
