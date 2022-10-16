@@ -17,17 +17,20 @@
 package v1alpha1
 
 import (
+	"context"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/klog"
 	ctrl "sigs.k8s.io/controller-runtime"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	"github.com/IBM/operand-deployment-lifecycle-manager/controllers/util"
 )
-
-// log is for logging in this package.
-var operandrequestlog = logf.Log.WithName("operandrequest-resource")
 
 func (r *OperandRequest) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
@@ -43,17 +46,45 @@ var _ webhook.Defaulter = &OperandRequest{}
 
 // Default implements webhook.Defaulter so a webhook will be registered for the type
 func (r *OperandRequest) Default() {
-	operandrequestlog.Info("default", "name", r.Name)
 	for i, req := range r.Spec.Requests {
 		regNs := req.RegistryNamespace
 		if regNs == "" {
 			regNs = r.Namespace
 		}
 		watchNamespace := util.GetWatchNamespace()
-		if !util.Contains(strings.Split(watchNamespace, ","), regNs) {
-			regNs = util.GetOperatorNamespace()
+		isDefaulting := false
+		// watchNamespace is empty in All namespace mode
+		if len(watchNamespace) == 0 {
+			cfg, err := config.GetConfig()
+			if err != nil {
+				klog.Errorf("Failed to get config: %v", err)
+			} else {
+				dynamic := dynamic.NewForConfigOrDie(cfg)
+
+				resourceID := schema.GroupVersionResource{
+					Group:    "",
+					Version:  "v1",
+					Resource: "namespaces",
+				}
+				ctx := context.Background()
+				if _, err := dynamic.Resource(resourceID).Get(ctx, regNs, metav1.GetOptions{}); err != nil {
+					if errors.IsNotFound(err) {
+						klog.Infof("Not found registrySamespace %v for OperandRequest %v/%v", regNs, r.Namespace, r.Name)
+						isDefaulting = true
+					} else {
+						klog.Errorf("Failed to get namespace %v: %v", regNs, err)
+					}
+				}
+			}
+
+		} else if len(watchNamespace) != 0 && !util.Contains(strings.Split(watchNamespace, ","), regNs) {
+			isDefaulting = true
 		}
-		r.Spec.Requests[i].RegistryNamespace = regNs
+		if isDefaulting {
+			operatorNamespace := util.GetOperatorNamespace()
+			r.Spec.Requests[i].RegistryNamespace = operatorNamespace
+			klog.Infof("Setting %vth RegistryNamespace for OperandRequest %v/%v: %v", i, r.Namespace, r.Name, operatorNamespace)
+		}
 	}
 	// TODO(user): fill in your defaulting logic.
 }
