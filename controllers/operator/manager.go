@@ -740,6 +740,15 @@ func (m *ODLMOperator) processMapObject(ctx context.Context, key string, mapObj 
 						continue
 					}
 				}
+				// Check if the returned value is a JSON map string and the field should be a map
+				if strings.HasPrefix(valueRef, "{") && strings.HasSuffix(valueRef, "}") {
+					var mapValue map[string]interface{}
+					if err := json.Unmarshal([]byte(valueRef), &mapValue); err == nil {
+						finalObject[key] = mapValue
+						continue
+					}
+				}
+				// Otherwise, treat it as a string
 				finalObject[key] = valueRef
 			} else {
 				klog.V(3).Infof("Empty value reference returned for key %s, deleting key %s from finalObject", key, key)
@@ -864,6 +873,38 @@ func (m *ODLMOperator) GetValueFromBranch(ctx context.Context, branch *util.Valu
 
 	if branch.Literal != "" {
 		return branch.Literal, nil
+	}
+
+	if branch.Map != nil {
+		// Handle map values
+		resultMap := make(map[string]interface{})
+		for k, v := range branch.Map {
+			if valueSourceMap, ok := v.(map[string]interface{}); ok {
+				vsBytes, err := json.Marshal(valueSourceMap)
+				if err != nil {
+					klog.Errorf("Failed to marshal map value to JSON: %v", err)
+					return "", err
+				}
+				var vs util.ValueSource
+				if err := json.Unmarshal(vsBytes, &vs); err != nil {
+					klog.Errorf("Failed to unmarshal to ValueSource: %v", err)
+					return "", err
+				}
+				resolvedVal, err := m.GetValueFromSource(ctx, &vs, instanceType, instanceName, instanceNs)
+				if err != nil {
+					return "", err
+				}
+				resultMap[k] = resolvedVal
+			} else {
+				resultMap[k] = v
+			}
+		}
+		// Marshal the map to JSON
+		jsonBytes, err := json.Marshal(resultMap)
+		if err != nil {
+			return "", err
+		}
+		return string(jsonBytes), nil
 	}
 
 	// Handle array values
